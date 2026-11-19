@@ -1,0 +1,44 @@
+name: update
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+concurrency:
+  group: update
+  cancel-in-progress: false
+permissions:
+  contents: write
+  actions: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 358
+    steps:
+      - run: echo "STARTED=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Unpiloted0852/pfd-flightplans-src
+          ssh-key: ${{ secrets.K }}
+          path: src
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: s.enc
+          key: s-${{ github.run_id }}
+          restore-keys: s-
+      - run: bash src/ci/run.sh
+        env:
+          E: ${{ secrets.E }}
+          K: ${{ secrets.K }}
+          GH_TOKEN: ${{ github.token }}
+      - if: always() && hashFiles('s.enc') != ''
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: s.enc
+          key: s-${{ github.run_id }}-${{ github.run_attempt }}
+      - if: always()
+        run: bash src/ci/next.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
